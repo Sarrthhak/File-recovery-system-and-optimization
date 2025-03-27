@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import hashlib
+import zipfile
 import shutil
 
 # ----- Helper Functions -----
@@ -29,28 +30,45 @@ def identify_large_files(file_list, size_limit=50):
     large_files = [file for file in file_list if os.path.getsize(file) > size_limit * 1024 * 1024]
     return large_files
 
+# Extract ZIP file
+def extract_zip(zip_path, extract_to):
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_to)
+
 # ----- Streamlit UI -----
 st.title("🗂️ File Recovery and Optimization System")
 
 # File/Folder Uploader
-uploaded_files = st.file_uploader("📂 Upload files/folders to analyze", accept_multiple_files=True)
+uploaded_file = st.file_uploader("📂 Upload a folder as a ZIP file or individual files", type=["zip", "txt", "pdf", "docx", "csv", "jpg", "png"], accept_multiple_files=True)
 
-# Analyze uploaded files
-if uploaded_files:
-    st.success(f"✅ {len(uploaded_files)} files uploaded successfully!")
-
-    # Save uploaded files temporarily
+# Process uploaded files
+if uploaded_file:
     temp_dir = "temp_uploaded_files"
     os.makedirs(temp_dir, exist_ok=True)
 
     file_list = []
-    for uploaded_file in uploaded_files:
-        file_path = os.path.join(temp_dir, uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        file_list.append(file_path)
 
-    # Show uploaded file names
+    for uploaded in uploaded_file:
+        file_path = os.path.join(temp_dir, uploaded.name)
+
+        # Save uploaded file or zip to temp directory
+        with open(file_path, "wb") as f:
+            f.write(uploaded.getbuffer())
+
+        # If it's a zip, extract it
+        if uploaded.name.endswith(".zip"):
+            extract_path = os.path.join(temp_dir, uploaded.name.replace(".zip", ""))
+            os.makedirs(extract_path, exist_ok=True)
+            extract_zip(file_path, extract_path)
+
+            # Get all extracted files
+            for root, _, files in os.walk(extract_path):
+                for file in files:
+                    file_list.append(os.path.join(root, file))
+        else:
+            file_list.append(file_path)
+
+    st.success(f"✅ {len(file_list)} files processed successfully!")
     st.write("📄 Uploaded Files:")
     st.write([os.path.basename(file) for file in file_list])
 
@@ -84,4 +102,4 @@ if uploaded_files:
 
 # No files uploaded
 else:
-    st.info("❗ Please upload files or folders to start analysis.")
+    st.info("❗ Please upload files or a ZIP folder to start analysis.")
