@@ -1,72 +1,32 @@
-import streamlit as st
 import os
-import hashlib
-
-# Function to calculate file size in MB
-def get_file_size(path):
-    return os.path.getsize(path) / (1024 * 1024)
-
-# Function to find duplicate files
-def find_duplicates(directory):
-    file_hashes = {}
-    duplicates = []
-    for foldername, subfolders, filenames in os.walk(directory):
-        for filename in filenames:
-            filepath = os.path.join(foldername, filename)
-            try:
-                file_hash = hashlib.md5(open(filepath, 'rb').read()).hexdigest()
-                if file_hash in file_hashes:
-                    duplicates.append(filepath)
-                else:
-                    file_hashes[file_hash] = filepath
-            except:
-                continue
-    return duplicates
-
-# Function to list large files
-def list_large_files(directory, size_threshold):
-    large_files = []
-    for foldername, subfolders, filenames in os.walk(directory):
-        for filename in filenames:
-            filepath = os.path.join(foldername, filename)
-            try:
-                size = get_file_size(filepath)
-                if size > size_threshold:
-                    large_files.append((filepath, size))
-            except:
-                continue
-    return large_files
+import streamlit as st
+import docx
 
 # Streamlit UI
-st.title("📂 File System Recovery and Optimization")
-st.sidebar.header("Options")
+st.title("📚 File Processing Application")
 
-# Select task
-task = st.sidebar.radio("Select a task", ["List Large Files", "Find Duplicate Files"])
+# User input for file path
+file_path = st.text_input("Enter the file path (e.g., D:/DOWNLOADS/patent for reference.docx):")
 
-# Get directory input
-directory = st.text_input("Enter the directory path:", "")
+# Validate file path and process file
+if file_path:
+    # Check if the file exists and is a .docx file
+    if os.path.isfile(file_path) and file_path.endswith(".docx"):
+        st.success("✅ File found! Processing...")
 
-# Perform actions
-if st.button("Run"):
-    if directory and os.path.exists(directory):
-        if task == "List Large Files":
-            size_threshold = st.number_input("Enter size threshold (in MB):", min_value=1.0, value=10.0)
-            large_files = list_large_files(directory, size_threshold)
-            if large_files:
-                st.write(f"### 📚 Large Files Found (>{size_threshold} MB):")
-                for file, size in large_files:
-                    st.write(f"- {file} ({size:.2f} MB)")
-            else:
-                st.write("✅ No large files found.")
-        
-        elif task == "Find Duplicate Files":
-            duplicates = find_duplicates(directory)
-            if duplicates:
-                st.write("### 🔁 Duplicate Files Found:")
-                for file in duplicates:
-                    st.write(f"- {file}")
-            else:
-                st.write("✅ No duplicate files found.")
+        # Load and display content from the .docx file
+        def read_docx(file_path):
+            doc = docx.Document(file_path)
+            content = []
+            for para in doc.paragraphs:
+                content.append(para.text)
+            return "\n".join(content)
+
+        # Read content from the file
+        try:
+            file_content = read_docx(file_path)
+            st.text_area("📄 File Content:", file_content, height=300)
+        except Exception as e:
+            st.error(f"⚠️ Error reading the file: {e}")
     else:
-        st.error("❗ Please enter a valid directory path.")
+        st.error("❗ Please enter a valid .docx file path.")
