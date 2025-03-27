@@ -1,68 +1,96 @@
 import streamlit as st
-import pandas as pd
-import docx
-from PyPDF2 import PdfReader
 import os
-from PIL import Image
+import hashlib
+import shutil
 
-# Streamlit UI
-st.title("📂 File and Folder Processing Application")
+# ----- Helper Functions -----
+# Get file hash to detect duplicates
+def get_file_hash(file_path):
+    hasher = hashlib.md5()
+    with open(file_path, "rb") as f:
+        buf = f.read()
+        hasher.update(buf)
+    return hasher.hexdigest()
 
-# Upload multiple files
-uploaded_files = st.file_uploader(
-    "Upload files or select multiple files from a folder", 
-    accept_multiple_files=True
-)
+# Scan directory and list all files
+def scan_directory(directory):
+    file_list = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            file_list.append(file_path)
+    return file_list
 
-# Process uploaded files
-if uploaded_files:
-    st.success(f"✅ {len(uploaded_files)} file(s) uploaded successfully!")
-
-    # Loop through all uploaded files
-    for uploaded_file in uploaded_files:
-        file_name = uploaded_file.name
-        st.write(f"📄 Processing file: `{file_name}`")
-
-        # Check file type and process accordingly
-        if file_name.endswith(".docx"):
-            # Read DOCX
-            def read_docx(file):
-                doc = docx.Document(file)
-                content = [para.text for para in doc.paragraphs]
-                return "\n".join(content)
-
-            content = read_docx(uploaded_file)
-            st.text_area(f"📚 Content of {file_name}:", content, height=200)
-
-        elif file_name.endswith(".txt"):
-            # Read TXT
-            content = uploaded_file.read().decode("utf-8")
-            st.text_area(f"📚 Content of {file_name}:", content, height=200)
-
-        elif file_name.endswith(".csv"):
-            # Read CSV
-            df = pd.read_csv(uploaded_file)
-            st.write(f"📊 Preview of {file_name}:", df.head())
-
-        elif file_name.endswith(".pdf"):
-            # Read PDF
-            def read_pdf(file):
-                pdf_reader = PdfReader(file)
-                content = ""
-                for page in pdf_reader.pages:
-                    content += page.extract_text()
-                return content
-
-            content = read_pdf(uploaded_file)
-            st.text_area(f"📚 Content of {file_name}:", content, height=200)
-
-        elif file_name.lower().endswith((".png", ".jpg", ".jpeg")):
-            # Display images
-            image = Image.open(uploaded_file)
-            st.image(image, caption=f"🖼️ {file_name}", use_column_width=True)
-
+# Detect duplicates by comparing hashes
+def detect_duplicates(file_list):
+    hash_map = {}
+    duplicates = []
+    for file in file_list:
+        file_hash = get_file_hash(file)
+        if file_hash in hash_map:
+            duplicates.append(file)
         else:
-            st.warning(f"⚠️ Unsupported file format: `{file_name}`. Cannot process this file type.")
+            hash_map[file_hash] = file
+    return duplicates
 
-else:
-    st.info("📂 Please upload files or select multiple files to continue.")
+# Identify large files (over 50 MB)
+def identify_large_files(file_list, size_limit=50):
+    large_files = [file for file in file_list if os.path.getsize(file) > size_limit * 1024 * 1024]
+    return large_files
+
+# Restore deleted files (placeholder)
+def recover_files(directory):
+    # Add actual recovery logic (if needed)
+    st.info("File recovery is not fully implemented yet. This is a placeholder.")
+    return []
+
+# ----- Streamlit UI -----
+st.title("🗂️ File Recovery and Optimization System")
+
+# Select Directory
+directory = st.text_input("📁 Enter the directory path:", "")
+
+# Scan and analyze files
+if st.button("🔍 Scan Directory"):
+    if os.path.isdir(directory):
+        st.success(f"Scanning directory: {directory}...")
+        
+        file_list = scan_directory(directory)
+        st.write(f"✅ Total Files Found: {len(file_list)}")
+
+        # Detect Duplicates
+        duplicates = detect_duplicates(file_list)
+        st.write(f"🗃️ Duplicates Found: {len(duplicates)}")
+        if duplicates:
+            st.write(duplicates)
+
+        # Identify Large Files
+        large_files = identify_large_files(file_list)
+        st.write(f"📦 Large Files Found: {len(large_files)}")
+        if large_files:
+            st.write(large_files)
+
+        # Recover Deleted Files (Placeholder)
+        recovered_files = recover_files(directory)
+        st.write(f"🔄 Recovered Files: {len(recovered_files)}")
+        if recovered_files:
+            st.write(recovered_files)
+
+    else:
+        st.error("❗ Please enter a valid directory path.")
+
+# Optimization Options
+st.sidebar.title("⚙️ File Optimization Options")
+delete_duplicates = st.sidebar.button("🗑️ Delete Duplicates")
+delete_large_files = st.sidebar.button("📉 Delete Large Files")
+
+# Handle actions
+if delete_duplicates and duplicates:
+    for file in duplicates:
+        os.remove(file)
+    st.sidebar.success(f"✅ {len(duplicates)} duplicate files deleted.")
+
+if delete_large_files and large_files:
+    for file in large_files:
+        os.remove(file)
+    st.sidebar.success(f"✅ {len(large_files)} large files deleted.")
