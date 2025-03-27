@@ -1,2 +1,5 @@
 streamlit
+pandas
 python-docx
+pillow
+PyPDF2
